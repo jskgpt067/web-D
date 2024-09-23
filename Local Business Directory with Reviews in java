@@ -1,0 +1,111 @@
+import javax.persistence.*;
+import java.util.List;
+
+@Entity
+public class Business {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String name;
+    private String address;
+    private String category;
+
+    @OneToMany(mappedBy = "business", cascade = CascadeType.ALL)
+    private List<Review> reviews;
+
+    // Getters and Setters
+}
+
+@Entity
+public class Review {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String username;
+    private String comment;
+    private int rating;
+
+    @ManyToOne
+    @JoinColumn(name = "business_id")
+    private Business business;
+
+    // Getters and Setters
+}
+
+reposatory interface
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface BusinessRepository extends JpaRepository<Business, Long> {
+}
+
+public interface ReviewRepository extends JpaRepository<Review, Long> {
+}
+service layer
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+public class BusinessService {
+    @Autowired
+    private BusinessRepository businessRepository;
+
+    public List<Business> getAllBusinesses() {
+        return businessRepository.findAll();
+    }
+
+    public void saveBusiness(Business business) {
+        businessRepository.save(business);
+    }
+}
+
+@Service
+public class ReviewService {
+    @Autowired
+    private ReviewRepository reviewRepository;
+
+    public void saveReview(Review review) {
+        reviewRepository.save(review);
+    }
+
+    public List<Review> getReviewsByBusinessId(Long businessId) {
+        return reviewRepository.findByBusinessId(businessId);
+    }
+}
+controller
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.*;
+
+@Controller
+@RequestMapping("/businesses")
+public class BusinessController {
+    @Autowired
+    private BusinessService businessService;
+    @Autowired
+    private ReviewService reviewService;
+
+    @GetMapping
+    public String listBusinesses(Model model) {
+        model.addAttribute("businesses", businessService.getAllBusinesses());
+        return "businesses";
+    }
+
+    @GetMapping("/{id}")
+    public String businessDetails(@PathVariable Long id, Model model) {
+        Business business = businessService.findById(id);
+        model.addAttribute("business", business);
+        model.addAttribute("reviews", reviewService.getReviewsByBusinessId(id));
+        return "businessDetails";
+    }
+
+    @PostMapping("/{id}/review")
+    public String submitReview(@PathVariable Long id, @ModelAttribute Review review) {
+        Business business = businessService.findById(id);
+        review.setBusiness(business);
+        reviewService.saveReview(review);
+        return "redirect:/businesses/" + id;
+    }
+}
